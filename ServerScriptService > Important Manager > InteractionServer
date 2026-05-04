@@ -1,0 +1,137 @@
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+local InteractionData = require(ReplicatedStorage:WaitForChild("InteractionData"))
+local events = ReplicatedStorage:WaitForChild("DreamEvents")
+local requestInteract = events:WaitForChild("RequestInteraction")
+local performInteract = events:WaitForChild("PerformInteraction")
+
+
+local function getGender(char)
+	if not char then return "Male" end
+	local hum = char:FindFirstChild("Humanoid")
+	if hum then
+		local desc = hum:GetAppliedDescription()
+		if desc and tostring(desc.Torso) == InteractionData.FEMALE_TORSO_ID then return "Female" end
+	end
+	return "Male"
+end
+
+local function getShirtId(char)
+	local shirt = char:FindFirstChildOfClass("Shirt")
+	if shirt then return tonumber(string.match(shirt.ShirtTemplate, "%d+")) end
+	return nil
+end
+
+local function findValueInAncestors(startPart, valueName)
+	if not startPart then return nil end
+	local v = startPart:FindFirstChild(valueName)
+	if v then return v end
+	if startPart.Parent then
+		v = startPart.Parent:FindFirstChild(valueName)
+		if v then return v end
+		if startPart.Parent.Parent then
+			v = startPart.Parent.Parent:FindFirstChild(valueName)
+			if v then return v end
+		end
+	end
+	return nil
+end
+
+
+requestInteract.OnServerEvent:Connect(function(player, target, hitPosition)
+
+	if not target or not target:IsDescendantOf(workspace) then return end
+	local character = player.Character
+	if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+	local dist = (character.HumanoidRootPart.Position - hitPosition).Magnitude
+	if dist > InteractionData.MAX_INTERACT_DISTANCE + 5 then return end
+
+
+	local memoryIdVal = findValueInAncestors(target, "MemoryID")
+	if memoryIdVal and InteractionData.MEMORIES[memoryIdVal.Value] then
+		performInteract:FireClient(player, "Memory", memoryIdVal.Value)
+		return
+	end
+
+
+	local noteIdVal = findValueInAncestors(target, "NoteID")
+	if noteIdVal and InteractionData.NOTES[noteIdVal.Value] then
+		performInteract:FireClient(player, "Note", InteractionData.NOTES[noteIdVal.Value])
+		return
+	end
+
+
+	local targetModel = target:FindFirstAncestorOfClass("Model")
+	local targetPlayer = Players:GetPlayerFromCharacter(targetModel)
+
+	if targetPlayer and targetPlayer ~= player then
+		local myGender = getGender(character)
+		local targetGender = getGender(targetModel)
+		local myId, targetId = player.UserId, targetPlayer.UserId
+		local myShirtId = getShirtId(character)
+		local theirShirtId = getShirtId(targetModel)
+		local isDreaming = (targetPlayer:FindFirstChild("Dreaming") and targetPlayer.Dreaming.Value == 1)
+		local state = isDreaming and "Dream" or "Normal"
+
+		if InteractionData.SPECIAL_RELATIONSHIPS[myId] and InteractionData.SPECIAL_RELATIONSHIPS[myId][targetId] then
+			local relData = InteractionData.SPECIAL_RELATIONSHIPS[myId][targetId]
+			performInteract:FireClient(player, "Message", type(relData) == "table" and relData[state] or relData)
+			return
+		end
+
+		local vipData = InteractionData.VIP_QUOTES[targetId]
+		if vipData and vipData[state] and vipData[state][myGender] then
+			performInteract:FireClient(player, "Message", vipData[state][myGender])
+			return
+		end
+
+		if InteractionData.VIP_OUTFIT_REACTIONS[myId] and theirShirtId then
+			local quote = InteractionData.VIP_OUTFIT_REACTIONS[myId][theirShirtId]
+			if quote then performInteract:FireClient(player, "Message", quote); return end
+		end
+
+		if theirShirtId then
+			local outfitData = InteractionData.OUTFIT_REACTIONS[theirShirtId] or InteractionData.OUTFIT_REACTIONS["DEFAULT"]
+			if targetPlayer == player and outfitData.Self then performInteract:FireClient(player, "Message", outfitData.Self); return end
+			local complexKey = "Target" .. targetGender .. "_" .. myGender .. "Viewer"
+			if outfitData[complexKey] then performInteract:FireClient(player, "Message", outfitData[complexKey]); return end
+			local simpleKey = (myGender == "Male") and "MaleViewer" or "FemaleViewer"
+			if outfitData[simpleKey] then performInteract:FireClient(player, "Message", outfitData[simpleKey]); return end
+		end
+
+		performInteract:FireClient(player, "Message", "Just another wanderer.")
+		return
+	end
+
+
+	local currentTool = character:FindFirstChildWhichIsA("Tool")
+	local messageToShow = nil
+	local myGender = getGender(character)
+
+	if currentTool then
+		if currentTool.Name == "MagicMug" then
+			local effectObj = findValueInAncestors(target, "Effect")
+			if effectObj then messageToShow = "I wonder if this is safe to drink." end
+		end
+		if not messageToShow then
+			local toolVal = findValueInAncestors(target, "InteractMessage_" .. currentTool.Name)
+			if toolVal then messageToShow = toolVal.Value end
+		end
+	end
+
+	if not messageToShow then
+		local genderVal = findValueInAncestors(target, "InteractMessage_" .. myGender)
+		if genderVal then messageToShow = genderVal.Value end
+	end
+	if not messageToShow then
+		local defaultVal = findValueInAncestors(target, "InteractMessage")
+		if defaultVal then messageToShow = defaultVal.Value end
+	end
+
+	if messageToShow then 
+		performInteract:FireClient(player, "Message", messageToShow) 
+	end
+end)
