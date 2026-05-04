@@ -1,0 +1,76 @@
+
+local Players = game:GetService("Players")
+
+
+local MIN_FALL_HEIGHT = 15   
+local DAMAGE_MULTIPLIER = 1.5 
+local SOUND_COOLDOWN = 0.5  
+
+local HURT_SOUND_ID = "rbxassetid://96758654650340" 
+
+local function setupCharacter(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local rootPart = character:WaitForChild("HumanoidRootPart")
+	local head = character:WaitForChild("Head")
+
+
+	local hurtSound = Instance.new("Sound")
+	hurtSound.Name = "HurtSound"
+	hurtSound.SoundId = HURT_SOUND_ID
+	hurtSound.Volume = 0.8
+	hurtSound.Parent = head
+
+	local lastHeight = 0
+	local isFalling = false
+	local lastHealth = humanoid.Health
+	local lastSoundPlay = 0 
+
+	
+	humanoid.HealthChanged:Connect(function(newHealth)
+
+	
+		if newHealth < lastHealth then
+
+		
+			if newHealth <= 0 then
+				lastHealth = newHealth
+				return 
+			end
+
+		
+			local now = tick()
+			if now - lastSoundPlay >= SOUND_COOLDOWN then
+				hurtSound:Play()
+				lastSoundPlay = now
+			end
+		end
+
+		lastHealth = newHealth
+	end)
+
+
+	humanoid.StateChanged:Connect(function(oldState, newState)
+		if newState == Enum.HumanoidStateType.Freefall then
+			lastHeight = rootPart.Position.Y
+			isFalling = true
+
+		elseif newState == Enum.HumanoidStateType.Landed or newState == Enum.HumanoidStateType.Running then
+			if isFalling then
+				isFalling = false
+				local currentHeight = rootPart.Position.Y
+				local heightDifference = lastHeight - currentHeight
+
+				if heightDifference > MIN_FALL_HEIGHT then
+					local damage = (heightDifference - MIN_FALL_HEIGHT) * DAMAGE_MULTIPLIER
+					humanoid:TakeDamage(damage)
+				end
+			end
+		end
+	end)
+end
+
+local function onPlayerJoined(player)
+	player.CharacterAdded:Connect(setupCharacter)
+end
+
+Players.PlayerAdded:Connect(onPlayerJoined)
