@@ -1,4 +1,3 @@
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local InsertService = game:GetService("InsertService")
@@ -114,7 +113,9 @@ local DEFAULT_OUTFITS = {
 			Accessories = {139152472} 
 		},
 		Dreams = { 
-			["Default"] = MALE_WANDERER, ["Taberna"] = MALE_WANDERER, ["Nivalis"] = MALE_WANDERER,
+			["Default"] = MALE_WANDERER, 
+			["Taberna"] = MALE_WANDERER, 
+			["Nivalis"] = MALE_WANDERER,
 			["Regnum Chartarum"] = { 
 				Face = 144075659, SkinColor = Color3.fromRGB(253, 234, 141), 
 				BodyParts = { Torso = 0, LeftArm = 0, RightArm = 0, LeftLeg = 0, RightLeg = 0 }, 
@@ -122,6 +123,13 @@ local DEFAULT_OUTFITS = {
 				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058} 
 			},
 			["Karma's Resting Place"] = { 
+				Face = 144075659, SkinColor = Color3.fromRGB(253, 234, 141), 
+				BodyParts = { Torso = 0, LeftArm = 0, RightArm = 0, LeftLeg = 0, RightLeg = 0 }, 
+				Shirt = 13776425493, Pants = 1882808357, 
+				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058} 
+			},
+			-- Placeholder outfit for the new map (Matches Cards Outfit)
+			["Convivium Potationis Perpetuum"] = { 
 				Face = 144075659, SkinColor = Color3.fromRGB(253, 234, 141), 
 				BodyParts = { Torso = 0, LeftArm = 0, RightArm = 0, LeftLeg = 0, RightLeg = 0 }, 
 				Shirt = 13776425493, Pants = 1882808357, 
@@ -148,13 +156,21 @@ local DEFAULT_OUTFITS = {
 		},
 		DJ = { Face = 9250654, SkinColor = Color3.fromRGB(253, 234, 141), BodyParts = WOMAN_BODY, Shirt = 0, Pants = 0, Accessories = {139152472} },
 		Dreams = { 
-			["Default"] = FEMALE_WANDERER, ["Taberna"] = FEMALE_WANDERER, ["Nivalis"] = FEMALE_WANDERER,
+			["Default"] = FEMALE_WANDERER, 
+			["Taberna"] = FEMALE_WANDERER, 
+			["Nivalis"] = FEMALE_WANDERER,
 			["Regnum Chartarum"] = { 
 				Face = 9250654, SkinColor = Color3.fromRGB(253, 234, 141), BodyParts = WOMAN_BODY, 
 				Shirt = 13776425493, Pants = 1882808357, 
 				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058, 14021743801} 
 			},
 			["Karma's Resting Place"] = { 
+				Face = 9250654, SkinColor = Color3.fromRGB(253, 234, 141), BodyParts = WOMAN_BODY, 
+				Shirt = 13776425493, Pants = 1882808357, 
+				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058, 14021743801} 
+			},
+			-- Placeholder outfit for the new map (Matches Cards Outfit)
+			["Convivium Potationis Perpetuum"] = { 
 				Face = 9250654, SkinColor = Color3.fromRGB(253, 234, 141), BodyParts = WOMAN_BODY, 
 				Shirt = 13776425493, Pants = 1882808357, 
 				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058, 14021743801} 
@@ -466,8 +482,13 @@ local function updateCharacter(player, character)
 				elseif vipData.DreamOutfit then
 					local dreamSetting = vipData.DreamOutfit
 					if dreamSetting == "DEFAULT" then
-						if genderSet.Dreams[currentMapName] then targetOutfit = genderSet.Dreams[currentMapName]
-						else targetOutfit = genderSet.Dreams["Default"] end
+						-- [[ THE VIP FIX ]]
+						-- If the map doesn't exist in the dictionary, gracefully fallback to "Default"
+						if genderSet.Dreams[currentMapName] then 
+							targetOutfit = genderSet.Dreams[currentMapName]
+						else 
+							targetOutfit = genderSet.Dreams["Default"] 
+						end
 					else
 						targetOutfit = dreamSetting
 					end
