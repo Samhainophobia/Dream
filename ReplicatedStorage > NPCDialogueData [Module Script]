@@ -1,0 +1,221 @@
+local DialogueData = {
+
+	["MysteriousStranger"] = {
+		Portrait = "rbxassetid://123456789", 
+		DefaultName = "???",
+		GetChat = function(player, talkCount, state)
+			local isKarma = (player.Name == "Karma" or player:GetAttribute("ActiveMorph") == "Karma")
+			local isPatrico = (player.Name == "Patrico" or player:GetAttribute("ActiveMorph") == "Patrico")
+			local currentNPCName = state.NameRevealed and "Alastor" or "???"
+
+			if isKarma then
+				return "Ah, <Color=Red>Karma<Color=/>. I was wondering when the Dreamscape would drag you back.", {{Text = "You know me?", Next = "KarmaLore"}}, currentNPCName
+			elseif isPatrico then
+				return "<Color=Green>Patrico<Color=/>... your presence here destabilizes the realm.", {{Text = "I don't care.", Next = "Close"}}, currentNPCName
+			else
+				if not state.NameRevealed then
+					return "You shouldn't wander in the dark, little dreamer.", {{Text = "Who are you?", Next = "AskName"}, {Text = "I'm leaving.", Next = "Close"}}, currentNPCName
+				else
+					return "Still here? The shadows are getting longer.", {{Text = "Goodbye.", Next = "Close"}}, currentNPCName
+				end
+			end
+		end,
+		Extra = function(player, state)
+			return {
+				["KarmaLore"] = {Text = "Everyone in the <Color=170,0,255>Frozen Soul<Color=/> knows of you. The script remembers.", Options = {{Text = "Interesting...", Next = "Return"}}, NameOverride = state.NameRevealed and "Alastor" or "???"},
+				["AskName"] = {Text = "My name? It's <Color=255,215,0>Alastor<Color=/>. Try not to forget it.", Options = {{Text = "Nice to meet you, Alastor.", Next = "Return"}}, Action = function() state.NameRevealed = true end, NameOverride = "Alastor"}
+			}
+		end
+	},
+
+		["Scarlett"] = {
+
+			Portrait = "rbxassetid://88943499884088",
+			DefaultName = "Scarlett",
+
+		GetChat = function(player, talkCount, state)
+
+			local SCAR_SAD = "rbxassetid://74659578087774"
+			local SCAR_NEUTRAL = "rbxassetid://88943499884088"
+			local SCAR_ANGRY = "rbxassetid://333333333"
+
+			local ReplicatedStorage = game:GetService("ReplicatedStorage")
+			local sharedCountVal = ReplicatedStorage:FindFirstChild("ScarlettTotalShards")
+			local totalShards = sharedCountVal and sharedCountVal.Value or 0
+
+			state.Met = state.Met or false
+			state.MemoryGiven = state.MemoryGiven or false
+
+			if not state.Met then
+				return "(Tears in her eyes) I’ve buried enough of Alact's subjects already. I won’t dig another grave today.", {
+					{Text = "We’re not with him.", Next = "Realization"}
+				}, "Scarlett", SCAR_ANGRY
+			end
+
+			if totalShards < 2 then
+				return "You’re still wandering blind. Come back when you’ve actually seen something.", {
+					{Text = "What do you mean?", Next = "HintShards"},
+					{Text = "Leave", Next = "Close"}
+				}, "Scarlett", SCAR_NEUTRAL
+			end
+
+			if totalShards < 5 then
+				return "…You’ve started digging. That’s more than most.", {
+					{Text = "I found pieces of your sister.", Next = "ShardDialogue"},
+					{Text = "What really happened here?", Next = "PartialLore"},
+					{Text = "Leave", Next = "Close"}
+				}, "Scarlett", SCAR_SAD
+			end
+
+			if not state.MemoryGiven then
+				return "…You didn’t just look. You paid attention.", {
+					{Text = "Show me the truth.", Next = "GiveMemory"},
+					{Text = "Why are you helping us?", Next = "WhyHelp"},
+					{Text = "Leave", Next = "Close"}
+				}, "Scarlett", SCAR_NEUTRAL
+			end
+
+			return "I’ve told you enough. What you do with it is your problem now.", {
+				{Text = "Why are you helping us?", Next = "WhyHelp"},
+				{Text = "Tell me about the Clockwork City.", Next = "ClockworkCity"},
+				{Text = "Leave", Next = "Close"}
+			}, "Scarlett", SCAR_NEUTRAL
+		end,
+		
+			Extra = function(player, state)
+
+				local isKarma = (player.Name == "Karma" or player:GetAttribute("ActiveMorph") == "Karma")
+				local isPatrico = (player.Name == "Patrico" or player:GetAttribute("ActiveMorph") == "Patrico")
+
+				local SCAR_SAD = "rbxassetid://74659578087774"
+				local SCAR_NEUTRAL = "rbxassetid://88943499884088"
+				local SCAR_HAPPY = "rbxassetid://79753091878961"
+
+				local characterSpecificOption
+				if isPatrico then
+					characterSpecificOption = {Text = "Will the King stop this?", Next = "PatricoResponse"}
+				elseif isKarma then
+					characterSpecificOption = {Text = "Why would anyone do that?", Next = "KarmaResponse"}
+				else
+					characterSpecificOption = {Text = "How do I stop this script?", Next = "GenericResponse"}
+				end
+
+				return {
+
+					["Realization"] = {
+						Text = "(She lowers her axe.)\n Real eyes... You’re Dreamers. But you wear the Suits. Alice is already writing your endings.",
+						Options = {{Text = "What do you mean?", Next = "HintShards"}},
+						Portrait = SCAR_NEUTRAL,
+						Action = function() state.Met = true end
+					},
+
+				
+					["HintShards"] = {
+						Text = "Fragments. Pieces of her… scattered through this broken kingdom.\n If you want answers, stop asking me and start looking.",
+						Options = {{Text = "Where do I look?", Next = "VagueHint"}},
+						Portrait = SCAR_NEUTRAL
+					},
+
+					["VagueHint"] = {
+						Text = "Anywhere the story feels… wrong.\n Thrones. Gardens. Places that should have mattered.",
+						Options = {{Text = "…Alright.", Next = "Close"}},
+						Portrait = SCAR_SAD
+					},
+
+				
+					["ShardDialogue"] = {
+						Text = "Then you’ve seen what they did to her… or at least pieces of it.\nTell me did it look like love to you?",
+						Options = {
+							{Text = "No.", Next = "ScarlettApproval"},
+							{Text = "I don’t know.", Next = "ScarlettNeutral"}
+						},
+						Portrait = SCAR_SAD
+					},
+
+					["ScarlettApproval"] = {
+						Text = "…Good. Then you’re not blind.",
+						Options = {characterSpecificOption},
+						Portrait = SCAR_NEUTRAL
+					},
+
+					["ScarlettNeutral"] = {
+						Text = "Then look harder next time.",
+						Options = {characterSpecificOption},
+						Portrait = SCAR_SAD
+					},
+
+				
+					["PartialLore"] = {
+						Text = "He wasn’t always like this.\n Or maybe he was… and I just didn’t see it.\n\n That’s the problem with stories—they make monsters look like kings.",
+						Options = {{Text = "Go back", Next = "Close"}},
+						Portrait = SCAR_SAD
+					},
+
+	
+					["GiveMemory"] = {
+						Text = "…Fine. \nYou’ve earned this much.\n\n But don’t expect it to make sense.",
+						Options = {{Text = "Take it.", Next = "MemoryGiven"}},
+						Portrait = SCAR_NEUTRAL,
+					},
+
+			     	["MemoryGiven"] = {
+					Text = "(She hands you something faintly glowing…)\n Don’t waste it.",
+					Options = {{Text = "Leave", Next = "Close"}},
+					Portrait = SCAR_SAD,
+					Action = function()
+						state.MemoryGiven = true
+
+						local ReplicatedStorage = game:GetService("ReplicatedStorage")
+						local triggerRemote = ReplicatedStorage:FindFirstChild("DreamEvents"):FindFirstChild("TriggerMemoryOrb")
+						if triggerRemote then
+							triggerRemote:FireServer()
+						end
+					end
+				},
+					
+					["PatricoResponse"] = {
+						Text = "Alact isn't in the right mind. Your pain is just poetry to him.\n Stop being predictable.",
+						Options = {{Text = "How do I do that?", Next = "FindL"}},
+						Portrait = SCAR_NEUTRAL
+					},
+
+					["KarmaResponse"] = {
+						Text = "You can't protect him from a script.\nPlay that role, and you’ll become the ending.",
+						Options = {{Text = "Then how do I save him?", Next = "FindL"}},
+						Portrait = SCAR_SAD
+					},
+
+					["GenericResponse"] = {
+						Text = "You don’t fight a story. You break it.",
+						Options = {{Text = "How?", Next = "FindL"}},
+						Portrait = SCAR_SAD
+					},
+
+					["FindL"] = {
+						Text = "Find L. Clockwork City.\nThat’s your only chance.",
+						Options = {
+							{Text = "Why help us?", Next = "WhyHelp"},
+							{Text = "Tell me about the city.", Next = "ClockworkCity"},
+							{Text = "Leave", Next = "Close"}
+						},
+						Portrait = SCAR_HAPPY
+					},
+
+					["WhyHelp"] = {
+						Text = "I want someone to remember her as Amaryllis… not as a role.",
+						Options = {{Text = "Go back", Next = "Close"}},
+						Portrait = SCAR_SAD
+					},
+
+					["ClockworkCity"] = {
+						Text = "Time doesn’t move right there.\nFind L before something else finds you.",
+						Options = {{Text = "Go back", Next = "Close"}},
+						Portrait = SCAR_NEUTRAL
+					}
+
+				}
+			end
+		}
+	}
+
+	return DialogueData
