@@ -41,8 +41,6 @@ local WOMAN_BODY = {
 	Torso = 48474356, LeftArm = 0, RightArm = 0, LeftLeg = 0, RightLeg = 0 
 }
 
-
-
 local MALE_WANDERER = {
 	Face = 144075659, 
 	SkinColor = Color3.fromRGB(253, 234, 141), 
@@ -128,12 +126,11 @@ local DEFAULT_OUTFITS = {
 				Shirt = 13776425493, Pants = 1882808357, 
 				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058} 
 			},
-			-- Placeholder outfit for the new map (Matches Cards Outfit)
 			["Convivium Potationis Perpetuum"] = { 
 				Face = 144075659, SkinColor = Color3.fromRGB(253, 234, 141), 
 				BodyParts = { Torso = 0, LeftArm = 0, RightArm = 0, LeftLeg = 0, RightLeg = 0 }, 
-				Shirt = 13776425493, Pants = 1882808357, 
-				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058} 
+				Shirt = 18609993045, Pants = 6777628597, 
+				Accessories = {76859292735650, 139152472, 71629218409765, 144343310175058} 
 			}
 		}
 	},
@@ -169,11 +166,10 @@ local DEFAULT_OUTFITS = {
 				Shirt = 13776425493, Pants = 1882808357, 
 				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058, 14021743801} 
 			},
-			-- Placeholder outfit for the new map (Matches Cards Outfit)
 			["Convivium Potationis Perpetuum"] = { 
 				Face = 9250654, SkinColor = Color3.fromRGB(253, 234, 141), BodyParts = WOMAN_BODY, 
-				Shirt = 13776425493, Pants = 1882808357, 
-				Accessories = {14894403884, 139152472, 71629218409765, 144343310175058, 14021743801} 
+				Shirt = 18609993045, Pants = 6777628597, 
+				Accessories = {76859292735650, 139152472, 71629218409765, 144343310175058, 14021743801} 
 			}
 		}
 	}
@@ -251,11 +247,11 @@ local VIP_PLAYERS = {
 				{ Id = 92480468904840, Offset = Vector3.new(0, 0, 0), Rotation = Vector3.new(0, 0, 0) },
 				{ Id = 18922458373, Offset = Vector3.new(0, 0, 0), Rotation = Vector3.new(0, 0, 0) },
 
-			
+
 				{ Id = 96516195044234, Offset = Vector3.new(-0, 0.2, 0), Rotation = Vector3.new(0, 0, 0) },
 				{ Id = 138420216496838, Offset = Vector3.new(-0, -0.3, -0.105), Rotation = Vector3.new(0, 0, 0), Scale = Vector3.new(1.088, 1.02, 1.237) }
 			},
-	
+
 		},
 		DreamOutfit = { 
 			SkinColor = Color3.fromRGB(255, 255, 255),
@@ -273,9 +269,8 @@ local VIP_PLAYERS = {
 			WaistHalo = game.ServerStorage:FindFirstChild("JesterHalo")
 		}
 	},
-	[513348034] = { Title = "Tester", TitleColor = Color3.fromRGB(255, 170, 255), MainOutfit = "DEFAULT", DreamOutfit = "DEFAULT" },
---	[986225083] = { Title = "Artist", MainOutfit = "DEFAULT", DreamOutfit = "DEFAULT" },
-	[901320483] = { Title = "Music Maker", TitleColor = Color3.fromRGB(255, 255, 255), TitleFont = Enum.Font.Kalam, NameColor = Color3.fromRGB(255, 150, 200), NameFont = Enum.Font.Kalam, UseGradient = true, GradientColors = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(235, 158, 235)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(157, 133, 154)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 170, 255))}), MainOutfit = "DEFAULT", DreamOutfit = "DEFAULT" }
+	[513348034] = { Title = "Tester", TitleColor = Color3.fromRGB(255, 170, 255), MainOutfit = "ROBLOX", DreamOutfit = "ROBLOX" },
+	[901320483] = { Title = "Music Maker", TitleColor = Color3.fromRGB(255, 255, 255), TitleFont = Enum.Font.Kalam, NameColor = Color3.fromRGB(255, 150, 200), NameFont = Enum.Font.Kalam, UseGradient = true, GradientColors = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(235, 158, 235)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(157, 133, 154)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 170, 255))}), MainOutfit = "ROBLOX", DreamOutfit = "ROBLOX" }
 }
 
 
@@ -316,7 +311,7 @@ local function applyAnimatedHalo(character, haloTemplate)
 
 		weld.C1 = CFrame.Angles(0, math.rad(timePassed * 90), 0)
 
-	
+
 		local sideMultiplier = 1.125 + (math.sin(timePassed * 2.5) * 0.125)
 
 		halo.Size = Vector3.new(baseSize.X, baseSize.Y * sideMultiplier, baseSize.Z * sideMultiplier)
@@ -407,7 +402,7 @@ local function applyOutfit(player, character, outfitData)
 
 		loadAccessoriesDirect(character, outfitData.Accessories or {})
 
-		-- [[ SPAWN THE HALO IF IT EXISTS IN THE CONFIG ]]
+	
 		if outfitData.WaistHalo then
 			applyAnimatedHalo(character, outfitData.WaistHalo)
 		end
@@ -475,20 +470,23 @@ local function updateCharacter(player, character)
 	elseif toggleState.Love[userId] then 
 		targetOutfit = genderSet.Valentine
 	else
+
 		if vipData then
 			if isPlayerDreaming then
 				if vipData.DreamVariants and #vipData.DreamVariants > 0 then
 					targetOutfit = vipData.DreamVariants[math.random(1, #vipData.DreamVariants)]
-				elseif vipData.DreamOutfit then
+				elseif vipData.DreamOutfit ~= nil then
 					local dreamSetting = vipData.DreamOutfit
-					if dreamSetting == "DEFAULT" then
-						-- [[ THE VIP FIX ]]
-						-- If the map doesn't exist in the dictionary, gracefully fallback to "Default"
+					-- "DEFAULT" gives them the Wanderer
+					if type(dreamSetting) == "string" and string.upper(dreamSetting) == "DEFAULT" then
 						if genderSet.Dreams[currentMapName] then 
 							targetOutfit = genderSet.Dreams[currentMapName]
 						else 
 							targetOutfit = genderSet.Dreams["Default"] 
 						end
+						-- "ROBLOX" gives them their real Website Avatar
+					elseif type(dreamSetting) == "string" and (string.upper(dreamSetting) == "ROBLOX" or string.upper(dreamSetting) == "NIL") then
+						targetOutfit = nil
 					else
 						targetOutfit = dreamSetting
 					end
@@ -496,8 +494,20 @@ local function updateCharacter(player, character)
 					targetOutfit = nil
 				end
 			else
-				if vipData.MainOutfit == "DEFAULT" then targetOutfit = genderSet.Awake
-				else targetOutfit = vipData.MainOutfit end
+				if vipData.MainOutfit ~= nil then
+					local mainSetting = vipData.MainOutfit
+					-- "DEFAULT" gives them the Wanderer
+					if type(mainSetting) == "string" and string.upper(mainSetting) == "DEFAULT" then 
+						targetOutfit = genderSet.Awake
+						-- "ROBLOX" gives them their real Website Avatar
+					elseif type(mainSetting) == "string" and (string.upper(mainSetting) == "ROBLOX" or string.upper(mainSetting) == "NIL") then 
+						targetOutfit = nil
+					else 
+						targetOutfit = mainSetting 
+					end
+				else
+					targetOutfit = nil
+				end
 			end
 		else 
 			if isPlayerDreaming then 
@@ -591,7 +601,7 @@ if adminForceEvent then
 		toggleState.DJ[id] = false
 		toggleState.Love[id] = false
 
-	
+
 		local styleLower = string.lower(outfitStyle)
 
 		if styleLower == "valentine" or styleLower == "love" then
@@ -617,7 +627,7 @@ if adminForceEvent then
 			local hum = char and char:FindFirstChild("Humanoid")
 
 			if char and hum and hum.Health > 0 then
-		
+
 				local hl = Instance.new("Highlight")
 				hl.Name = "MorphHighlight"
 				hl.FillColor = Color3.fromRGB(255, 255, 255)
@@ -632,13 +642,13 @@ if adminForceEvent then
 
 				for i = 1, steps do
 					if not char or not char.Parent or hum.Health <= 0 then break end
-	
+
 					hl.FillTransparency = 0.5 + 0.5 * math.sin(i * 0.5)
 					hl.OutlineTransparency = hl.FillTransparency
 					task.wait(waitTime)
 				end
 
-	
+
 				if char and char.Parent and hum.Health > 0 then
 					local flashIn = TweenService:Create(hl, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
 						FillTransparency = 0, 
@@ -661,7 +671,7 @@ if adminForceEvent then
 					hl:Destroy()
 				end
 			else
-			
+
 				updateCharacter(targetPlayer, char)
 			end
 		end)
