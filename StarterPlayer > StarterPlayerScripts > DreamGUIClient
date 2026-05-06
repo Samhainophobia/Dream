@@ -5,7 +5,8 @@ local SoundService = game:GetService("SoundService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui") 
-local Lighting = game:GetService("Lighting") 
+local Lighting = game:GetService("Lighting")
+local ContentProvider = game:GetService("ContentProvider")
 
 local InteractionData = require(ReplicatedStorage:WaitForChild("InteractionData"))
 
@@ -158,48 +159,71 @@ local function playMemorySequence(memoryId)
 	blur.Size = 0
 	TweenService:Create(blur, TweenInfo.new(1.5), {Size = 24}):Play()
 
-	-- [[ NEW: Track the Background Image ]]
+	local imagesToPreload = {}
+	for _, page in ipairs(memoryData) do
+		if type(page) == "table" and page.Image then
+			local tempImg = Instance.new("ImageLabel")
+			tempImg.Image = page.Image
+			table.insert(imagesToPreload, tempImg)
+		end
+	end
+	if #imagesToPreload > 0 then
+		pcall(function()
+			ContentProvider:PreloadAsync(imagesToPreload)
+		end)
+	end
+
 	local currentImageLabel = nil
 
-	for _, page in ipairs(memoryData) do
+	for pageIndex, page in ipairs(memoryData) do
 		if type(page) == "table" and page.Segments then
-			
-			-- [[ IMAGE TRANSITION LOGIC ]]
+
 			local targetImage = page.Image
 			local currentImageId = currentImageLabel and currentImageLabel.Image or nil
-			
+
 			if targetImage ~= currentImageId then
 				local oldLabel = currentImageLabel
 				local newLabel = nil
-				
+
 				if targetImage then
 					newLabel = Instance.new("ImageLabel", screenGui)
 					newLabel.Name = "MemoryBackground"
 					newLabel.Size = UDim2.fromScale(1, 1)
+
+					-- [[ THE TEXT READABILITY TINT ]]
+					-- Setting the background to solid black (0 transparency) 
+					-- and the image to slightly transparent creates a cinematic dark tint!
 					newLabel.BackgroundColor3 = Color3.new(0, 0, 0)
-					newLabel.BackgroundTransparency = 1 -- Dark overlay for readability
+					newLabel.BackgroundTransparency = 1 
 					newLabel.Image = targetImage
 					newLabel.ImageTransparency = 1
-					newLabel.ScaleType = Enum.ScaleType.Crop
-					newLabel.ZIndex = 5 -- Keep it behind text
-					
-					TweenService:Create(newLabel, TweenInfo.new(1.5), {ImageTransparency = 0, BackgroundTransparency = 0.4}):Play()
+
+					-- [[ THE ASPECT RATIO FIX ]]
+					-- Stretch pulls the edges to touch every corner so nothing is cut out and there are no empty sides!
+					newLabel.ScaleType = Enum.ScaleType.Stretch 
+					newLabel.ZIndex = 5 
+
+					TweenService:Create(newLabel, TweenInfo.new(1.5), {ImageTransparency = 0.4, BackgroundTransparency = 0}):Play()
 				end
-				
+
 				if oldLabel then
 					local fadeOut = TweenService:Create(oldLabel, TweenInfo.new(1.5), {ImageTransparency = 1, BackgroundTransparency = 1})
 					fadeOut:Play()
 					fadeOut.Completed:Connect(function() oldLabel:Destroy() end)
 				end
-				
+
 				currentImageLabel = newLabel
+
+				if pageIndex == 1 and targetImage then
+					task.wait(1.5)
+				end
 			end
 
 			local masterContainer = Instance.new("Frame", screenGui)
 			masterContainer.Size = UDim2.new(1, 0, 0, 150)
 			masterContainer.Position = UDim2.new(0, 0, 0.7, 0)
 			masterContainer.BackgroundTransparency = 1
-			masterContainer.ZIndex = 10 -- Ensure text is above the image
+			masterContainer.ZIndex = 10 
 
 			local vLayout = Instance.new("UIListLayout", masterContainer)
 			vLayout.FillDirection = Enum.FillDirection.Vertical
@@ -292,7 +316,6 @@ local function playMemorySequence(memoryId)
 		end
 	end
 
-	-- [[ CLEAN UP IMAGE BACKGROUND ]]
 	if currentImageLabel then
 		local fadeOut = TweenService:Create(currentImageLabel, TweenInfo.new(1.5), {ImageTransparency = 1, BackgroundTransparency = 1})
 		fadeOut:Play()
