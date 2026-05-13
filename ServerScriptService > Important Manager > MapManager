@@ -6,6 +6,12 @@ local Teams = game:GetService("Teams")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ScarlettShardService = require(ServerScriptService:WaitForChild("ScarlettShardService"))
 
+-- [[ THE FIX: FORCE PRESSURE OFF BEFORE BACKUP ]]
+local pressureEffect = Lighting:FindFirstChild("Pressure")
+if pressureEffect then
+	pressureEffect.Enabled = false
+end
+
 -- [[ LIGHTING BACKUP SYSTEM ]]
 local defaultLightingBackup = Instance.new("Folder")
 defaultLightingBackup.Name = "DefaultLightingBackup"
@@ -376,7 +382,12 @@ _G.UnloadDream = function()
 	
 	-- RESTORE DEFAULT LIGHTING EFFECTS
 	for _, child in ipairs(defaultLightingBackup:GetChildren()) do
-		child:Clone().Parent = Lighting
+		local clone = child:Clone()
+		-- [[ BULLETPROOF FIX: Force Pressure OFF upon restoring ]]
+		if clone.Name == "Pressure" then
+			clone.Enabled = false
+		end
+		clone.Parent = Lighting
 	end
 	
 	-- RESTORE DEFAULT LIGHTING PROPERTIES
