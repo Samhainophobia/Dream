@@ -348,7 +348,7 @@ end
 
 _G.UnloadDream = function()
 	updateAllClients("WAKING UP...")
-	voteStatusEvent:FireAllClients("FadeOut")
+	voteStatusEvent:FireAllClients("FadeOut", "Waking Up")
 	task.wait(2.2)
 	ScarlettShardService:Reset()
 	if currentDreamMap then
