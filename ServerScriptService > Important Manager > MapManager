@@ -6,12 +6,42 @@ local Teams = game:GetService("Teams")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ScarlettShardService = require(ServerScriptService:WaitForChild("ScarlettShardService"))
 
+-- [[ LIGHTING BACKUP SYSTEM ]]
+local defaultLightingBackup = Instance.new("Folder")
+defaultLightingBackup.Name = "DefaultLightingBackup"
+defaultLightingBackup.Parent = ServerStorage
+
+-- 1. Backup all the Children (ColorCorrections, Blurs, Atmospheres, etc.)
+for _, child in ipairs(Lighting:GetChildren()) do
+	if not child:IsA("Script") then
+		child:Clone().Parent = defaultLightingBackup
+	end
+end
+
+-- 2. Backup the core properties
+local defaultProperties = {
+	Ambient = Lighting.Ambient,
+	Brightness = Lighting.Brightness,
+	ColorShift_Bottom = Lighting.ColorShift_Bottom,
+	ColorShift_Top = Lighting.ColorShift_Top,
+	EnvironmentDiffuseScale = Lighting.EnvironmentDiffuseScale,
+	EnvironmentSpecularScale = Lighting.EnvironmentSpecularScale,
+	GlobalShadows = Lighting.GlobalShadows,
+	OutdoorAmbient = Lighting.OutdoorAmbient,
+	ShadowSoftness = Lighting.ShadowSoftness,
+	ClockTime = Lighting.ClockTime,
+	GeographicLatitude = Lighting.GeographicLatitude,
+	ExposureCompensation = Lighting.ExposureCompensation,
+	FogColor = Lighting.FogColor,
+	FogStart = Lighting.FogStart,
+	FogEnd = Lighting.FogEnd
+}
+
 local COOLDOWN_TIME = 15 
 local COUNTDOWN_TIME = 5
 local LOAD_DELAY_TIME = 4 
 local KING_ID = 4477038552
 local RARE_AUDIO_ID = "rbxassetid://92039715426333"
-
 
 local DREAM_MAP_NAMES = {
 	"Regnum Chartarum",
@@ -20,7 +50,6 @@ local DREAM_MAP_NAMES = {
 	"Taberna",
 	"Convivium Potationis Perpetuum"
 }
-
 
 local events = ReplicatedStorage:WaitForChild("DreamEvents")
 local voteStatusEvent = events:WaitForChild("VoteStatus")
@@ -35,13 +64,11 @@ local votes = {}
 local voteType = "Sleep" 
 local lastMapName = ""
 
-
 local mainMap = workspace:WaitForChild("MainMap") 
 local mapsFolder = ServerStorage:WaitForChild("Maps")
 local currentDreamMap = nil 
 local currentClickConnection = nil
 local tempPlatforms = {} 
-
 
 local function setupTeams()
 	local nightmare = Teams:FindFirstChild("Safe Place")
@@ -74,7 +101,6 @@ Players.PlayerAdded:Connect(function(player)
 	player.Team = Teams:FindFirstChild("Dreamers")
 end)
 
-
 local function updateAllClients(msg)
 	voteStatusEvent:FireAllClients("UpdateTopText", msg)
 end
@@ -85,12 +111,10 @@ local function freezeAndTeleport(targetCFrame)
 			local root = player.Character.HumanoidRootPart
 			local hum = player.Character:FindFirstChild("Humanoid")
 
-	
 			if hum then 
 				hum.Sit = false 
 				hum:ChangeState(Enum.HumanoidStateType.Physics) 
 			end
-
 			
 			local plat = Instance.new("Part")
 			plat.Size = Vector3.new(20, 1, 20)
@@ -101,10 +125,7 @@ local function freezeAndTeleport(targetCFrame)
 			plat.Parent = workspace
 			table.insert(tempPlatforms, plat)
 
-	
 			root.CFrame = targetCFrame
-
-
 			root.Anchored = true
 			root.Velocity = Vector3.new(0,0,0)
 		end
@@ -122,22 +143,18 @@ local function unfreezePlayers()
 		end
 	end
 
-
 	for _, p in pairs(tempPlatforms) do
 		if p then p:Destroy() end
 	end
 	tempPlatforms = {}
 end
 
-
 local function applyMapLighting(mapModel)
 	local settingsFolder = mapModel:FindFirstChild("LightingSettings")
 	if not settingsFolder then return end 
 
-
 	local clockTimeVal = settingsFolder:FindFirstChild("ClockTime")
 	if clockTimeVal then Lighting.ClockTime = clockTimeVal.Value end
-
 
 	local fogColorVal = settingsFolder:FindFirstChild("FogColor")
 	if fogColorVal then Lighting.FogColor = fogColorVal.Value end
@@ -147,7 +164,6 @@ local function applyMapLighting(mapModel)
 
 	local fogEndVal = settingsFolder:FindFirstChild("FogEnd")
 	if fogEndVal then Lighting.FogEnd = fogEndVal.Value end
-
 
 	for _, child in pairs(Lighting:GetChildren()) do
 		if not child:IsA("Script") then child:Destroy() end
@@ -159,7 +175,7 @@ local function applyMapLighting(mapModel)
 		end
 	end
 end
--- event
+
 local function triggerKingEvent()
 	local isKingPresent = false
 	for _, p in pairs(Players:GetPlayers()) do
@@ -178,7 +194,6 @@ local function triggerKingEvent()
 		voteStatusEvent:FireAllClients("ShowIntroText", "Welcome to the Card Kingdom", Color3.fromRGB(255, 0, 0))
 	end
 end
-
 
 local function finishVote()
 	voteStatusEvent:FireAllClients("HideVote")
@@ -245,8 +260,6 @@ local function connectButton(buttonPart, type)
 	end
 end
 
-
-
 _G.LoadDream = function()
 	updateAllClients("ENTERING THE DREAM...")
 	voteStatusEvent:FireAllClients("FadeOut") 
@@ -255,22 +268,17 @@ _G.LoadDream = function()
 
 	mainMap.Parent = ServerStorage 
 
-
 	local nextMapName = nil
 
 	if _G.ForcedNextDream then
-	
 		if mapsFolder:FindFirstChild(_G.ForcedNextDream) then
 			nextMapName = _G.ForcedNextDream
 			print("Loading Admin-Forced Dream: " .. nextMapName)
 		else
 			warn("Admin tried to force dream '" .. tostring(_G.ForcedNextDream) .. "', but it doesn't exist in ServerStorage/Maps!")
 		end
-
-	
 		_G.ForcedNextDream = nil 
 	end
-
 	
 	if not nextMapName then
 		local availableMaps = {}
@@ -279,15 +287,11 @@ _G.LoadDream = function()
 				table.insert(availableMaps, name)
 			end
 		end
-
-	
 		if #availableMaps == 0 then availableMaps = DREAM_MAP_NAMES end
-
 		nextMapName = availableMaps[math.random(1, #availableMaps)]
 	end
 
 	lastMapName = nextMapName
-
 
 	local selectedMapTemplate = mapsFolder:FindFirstChild(nextMapName)
 
@@ -299,7 +303,6 @@ _G.LoadDream = function()
 	currentDreamMap = selectedMapTemplate:Clone()
 	currentDreamMap.Parent = workspace
 
-
 	currentDreamStatus.Value = currentDreamMap.Name 
 
 	for _, team in pairs(Teams:GetTeams()) do
@@ -309,7 +312,6 @@ _G.LoadDream = function()
 	end
 
 	applyMapLighting(currentDreamMap)
-
 
 	local spawnPoint = currentDreamMap:FindFirstChild("SpawnLocation") 
 	local targetCFrame
@@ -365,7 +367,24 @@ _G.UnloadDream = function()
 		end
 	end
 
-	applyMapLighting(mainMap)
+	-- CLEAR ALL DREAM LIGHTING
+	for _, child in ipairs(Lighting:GetChildren()) do
+		if not child:IsA("Script") then
+			child:Destroy()
+		end
+	end
+	
+	-- RESTORE DEFAULT LIGHTING EFFECTS
+	for _, child in ipairs(defaultLightingBackup:GetChildren()) do
+		child:Clone().Parent = Lighting
+	end
+	
+	-- RESTORE DEFAULT LIGHTING PROPERTIES
+	for propName, propValue in pairs(defaultProperties) do
+		pcall(function()
+			Lighting[propName] = propValue
+		end)
+	end
 
 	local destPart = mainMap:FindFirstChild("DreamBed", true)
 	if not destPart then destPart = mainMap:FindFirstChild("SpawnLocation") end
@@ -384,7 +403,6 @@ _G.UnloadDream = function()
 	unfreezePlayers()
 	voteStatusEvent:FireAllClients("FadeIn")
 end
-
 
 currentDreamStatus.Value = "" 
 
