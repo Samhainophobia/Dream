@@ -7,6 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local StarterGui = game:GetService("StarterGui") 
 local Lighting = game:GetService("Lighting")
 local ContentProvider = game:GetService("ContentProvider")
+local Debris = game:GetService("Debris")
 
 local InteractionData = require(ReplicatedStorage:WaitForChild("InteractionData"))
 
@@ -26,7 +27,13 @@ screenGui.IgnoreGuiInset = true
 screenGui.ResetOnSpawn = false
 screenGui.DisplayOrder = 10000 
 
--- [[ SILENT PRELOAD FOR SLEEP IMAGES ]]
+
+local memoryMusicPlayer = Instance.new("Sound")
+memoryMusicPlayer.Name = "MemoryMusic"
+memoryMusicPlayer.Looped = true
+memoryMusicPlayer.Parent = SoundService
+
+
 local SLEEP_IMAGES = {
 	"rbxassetid://81932654794011", 
 	"rbxassetid://121543389128518"
@@ -51,7 +58,6 @@ customCursor.ZIndex = 2000
 
 local darkenFrame = Instance.new("Frame", screenGui); darkenFrame.Name="DarkenFrame"; darkenFrame.Size=UDim2.fromScale(1,1); darkenFrame.BackgroundColor3=Color3.new(0,0,0); darkenFrame.BackgroundTransparency=1; darkenFrame.ZIndex=5; darkenFrame.Visible=false
 
--- [[ FIX: CONVERTED FADE FRAME TO IMAGE LABEL ]]
 local fadeFrame = Instance.new("ImageLabel", screenGui); fadeFrame.Name="FadeFrame"; fadeFrame.Size=UDim2.fromScale(1,1);
 fadeFrame.BackgroundColor3=Color3.new(0,0,0); fadeFrame.BackgroundTransparency=1; fadeFrame.ImageTransparency=1; fadeFrame.ScaleType=Enum.ScaleType.Stretch; fadeFrame.Visible=false; fadeFrame.ZIndex=10
 
@@ -149,10 +155,11 @@ local function playMemorySequence(memoryId)
 	isPlayingMemory = true
 	setFocusMode(true)
 
+	-- Fade out surrounding map music
 	local fadingSounds = {}
 	local function scanForSounds(parentFolder)
 		for _, obj in ipairs(parentFolder:GetDescendants()) do
-			if obj:IsA("Sound") and obj.IsPlaying then
+			if obj:IsA("Sound") and obj.IsPlaying and obj ~= memoryMusicPlayer then
 				fadingSounds[obj] = obj.Volume
 				TweenService:Create(obj, TweenInfo.new(1.5), {Volume = 0}):Play()
 			end
@@ -161,17 +168,13 @@ local function playMemorySequence(memoryId)
 	scanForSounds(workspace)
 	scanForSounds(SoundService)
 
-	local memorySound = nil
+	-- Initial Memory Soundtrack Setup
+	memoryMusicPlayer.SoundId = memoryData.Soundtrack and ("rbxassetid://" .. memoryData.Soundtrack) or ""
+	memoryMusicPlayer.Volume = 0
 	if memoryData.Soundtrack then
-		memorySound = Instance.new("Sound")
-		memorySound.SoundId = memoryData.Soundtrack
-		memorySound.Volume = 0
-		memorySound.Looped = true
-		memorySound.Parent = SoundService
-		memorySound:Play()
-
+		memoryMusicPlayer:Play()
 		local targetVol = memoryData.SoundtrackVolume or 0.5
-		TweenService:Create(memorySound, TweenInfo.new(1.5), {Volume = targetVol}):Play()
+		TweenService:Create(memoryMusicPlayer, TweenInfo.new(1.5), {Volume = targetVol}):Play()
 	end
 
 	local blur = Instance.new("BlurEffect", Lighting)
@@ -200,6 +203,7 @@ local function playMemorySequence(memoryId)
 			local targetImage = page.Image
 			local currentImageId = currentImageLabel and currentImageLabel.Image or nil
 
+			-- Handle Background Images
 			if targetImage ~= currentImageId then
 				local oldLabel = currentImageLabel
 				local newLabel = nil
@@ -208,12 +212,10 @@ local function playMemorySequence(memoryId)
 					newLabel = Instance.new("ImageLabel", screenGui)
 					newLabel.Name = "MemoryBackground"
 					newLabel.Size = UDim2.fromScale(1, 1)
-
 					newLabel.BackgroundColor3 = Color3.new(0, 0, 0)
 					newLabel.BackgroundTransparency = 1 
 					newLabel.Image = targetImage
 					newLabel.ImageTransparency = 1
-
 					newLabel.ScaleType = Enum.ScaleType.Stretch 
 					newLabel.ZIndex = 5 
 
@@ -233,6 +235,7 @@ local function playMemorySequence(memoryId)
 				end
 			end
 
+			-- Setup the UI Container
 			local masterContainer = Instance.new("Frame", screenGui)
 			masterContainer.Size = UDim2.new(1, 0, 0, 150)
 			masterContainer.Position = UDim2.new(0, 0, 0.7, 0)
@@ -245,11 +248,9 @@ local function playMemorySequence(memoryId)
 			vLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 			vLayout.Padding = UDim.new(0, 5)
 
-			local allLabelsToFade = {}
-			local shakingLabels = {}
-
+			local speakerLbl = nil
 			if page.Speaker then
-				local speakerLbl = Instance.new("TextLabel", masterContainer)
+				speakerLbl = Instance.new("TextLabel", masterContainer)
 				speakerLbl.BackgroundTransparency = 1
 				speakerLbl.Text = page.Speaker
 				speakerLbl.Font = Enum.Font.SpecialElite 
@@ -261,8 +262,6 @@ local function playMemorySequence(memoryId)
 				speakerLbl.TextTransparency = 1
 				speakerLbl.TextStrokeTransparency = 1
 				speakerLbl.TextStrokeColor3 = Color3.new(0, 0, 0)
-
-				table.insert(allLabelsToFade, speakerLbl)
 			end
 
 			local lineFrame = Instance.new("Frame", masterContainer)
@@ -276,6 +275,9 @@ local function playMemorySequence(memoryId)
 			hLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 			hLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
+			local labelsAndSegments = {}
+
+			-- PREPARE THE LABELS FOR TYPEWRITER
 			for i, segment in ipairs(page.Segments) do
 				local wrapper = Instance.new("Frame", lineFrame)
 				wrapper.BackgroundTransparency = 1
@@ -284,44 +286,117 @@ local function playMemorySequence(memoryId)
 
 				local lbl = Instance.new("TextLabel", wrapper)
 				lbl.BackgroundTransparency = 1
-				lbl.Text = segment.text
+				lbl.Text = "" -- Start empty so we can type it!
+				lbl.RichText = true -- Allows <font color='red'> tags to work invisibly!
 				lbl.Font = Enum.Font.SpecialElite 
 				lbl.TextSize = 34
 				lbl.TextColor3 = segment.color or Color3.new(1, 1, 1)
 				lbl.AutomaticSize = Enum.AutomaticSize.XY 
 				lbl.ZIndex = 15
 
-				lbl.TextTransparency = 1
-				lbl.TextStrokeTransparency = 1
+				lbl.TextTransparency = 0 
+				lbl.TextStrokeTransparency = 0
 				lbl.TextStrokeColor3 = Color3.new(0, 0, 0)
 
-				table.insert(allLabelsToFade, lbl)
-				if segment.shake then table.insert(shakingLabels, lbl) end
+				table.insert(labelsAndSegments, {Label = lbl, Segment = segment, Wrapper = wrapper})
 			end
 
-			for _, lbl in ipairs(allLabelsToFade) do
-				TweenService:Create(lbl, TweenInfo.new(1.5), {TextTransparency = 0, TextStrokeTransparency = 0}):Play()
-			end
+			-- Slide the container up and fade in speaker
 			TweenService:Create(masterContainer, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = UDim2.new(0, 0, 0.5, -75)}):Play()
+			if speakerLbl then
+				TweenService:Create(speakerLbl, TweenInfo.new(1.5), {TextTransparency = 0, TextStrokeTransparency = 0}):Play()
+			end
+			task.wait(1.5)
 
-			local shakeConnection
-			if #shakingLabels > 0 then
-				shakeConnection = RunService.RenderStepped:Connect(function()
-					for _, lbl in ipairs(shakingLabels) do
-						lbl.Position = UDim2.fromOffset(math.random(-3, 3), math.random(-3, 3))
+			local shakeConnections = {}
+
+			-- [[ THE NEW RPG MAKER TYPEWRITER LOOP ]]
+			for _, item in ipairs(labelsAndSegments) do
+				local lbl = item.Label
+				local segment = item.Segment
+
+				-- 1. Trigger RPG Maker Audio Effects
+				if segment.SilenceMusic then
+					TweenService:Create(memoryMusicPlayer, TweenInfo.new(0.5), {Volume = 0}):Play()
+				end
+				if segment.NewMusic then
+					memoryMusicPlayer.SoundId = "rbxassetid://" .. segment.NewMusic
+					memoryMusicPlayer.Volume = 0
+					if not memoryMusicPlayer.IsPlaying then memoryMusicPlayer:Play() end
+					TweenService:Create(memoryMusicPlayer, TweenInfo.new(1.5), {Volume = 0.5}):Play()
+				end
+				if segment.SFX then
+					local sfx = Instance.new("Sound")
+					sfx.SoundId = "rbxassetid://" .. segment.SFX
+					sfx.Volume = 1
+					sfx.Parent = workspace
+					sfx:Play()
+					Debris:AddItem(sfx, 5)
+				end
+
+				-- 2. Trigger UI Shaking Effect
+				if segment.shake or segment.Shake then
+					local originalPos = lbl.Position
+					local conn = RunService.RenderStepped:Connect(function()
+						if lbl and lbl.Parent then
+							lbl.Position = originalPos + UDim2.fromOffset(math.random(-3, 3), math.random(-3, 3))
+						end
+					end)
+					table.insert(shakeConnections, conn)
+				end
+
+				-- 3. Dynamic Typewriter
+				local fullText = segment.text or segment.Text or ""
+				local displayedText = ""
+				local i = 1
+				local length = string.len(fullText)
+				local typeSpeed = segment.TypeSpeed or 0.04
+
+				while i <= length do
+					local char = string.sub(fullText, i, i)
+
+					-- Skip past <font color> tags instantly so it doesn't break the code on screen
+					if char == "<" then
+						local endRich = string.find(fullText, ">", i)
+						if endRich then
+							displayedText = displayedText .. string.sub(fullText, i, endRich)
+							lbl.Text = displayedText
+							i = endRich + 1
+							continue
+						end
 					end
-				end)
+
+					displayedText = displayedText .. char
+					lbl.Text = displayedText
+					i = i + 1
+
+					-- Dynamic Pacing (Wait longer at punctuation)
+					if char == "." or char == "?" or char == "!" then
+						task.wait(typeSpeed * 6)
+					elseif char == "," then
+						task.wait(typeSpeed * 3)
+					else
+						task.wait(typeSpeed)
+					end
+				end
+
+				-- Pause momentarily before typing the next segment
+				task.wait(segment.Pause or 0.1)
 			end
 
-			local readTime = 2
-			for _, seg in ipairs(page.Segments) do readTime = readTime + (#seg.text * 0.06) end
+			-- Wait for the player to finish reading the page
+			local readTime = page.ReadTime or 2.5
 			task.wait(readTime)
 
-			if shakeConnection then shakeConnection:Disconnect() end
+			for _, conn in ipairs(shakeConnections) do conn:Disconnect() end
 
+			-- Fade everything out
 			TweenService:Create(masterContainer, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {Position = UDim2.new(0, 0, 0.6, -75)}):Play()
-			for _, lbl in ipairs(allLabelsToFade) do
-				TweenService:Create(lbl, TweenInfo.new(1.5), {TextTransparency = 1, TextStrokeTransparency = 1}):Play()
+			if speakerLbl then
+				TweenService:Create(speakerLbl, TweenInfo.new(1.5), {TextTransparency = 1, TextStrokeTransparency = 1}):Play()
+			end
+			for _, item in ipairs(labelsAndSegments) do
+				TweenService:Create(item.Label, TweenInfo.new(1.5), {TextTransparency = 1, TextStrokeTransparency = 1}):Play()
 			end
 
 			task.wait(1.5)
@@ -336,12 +411,12 @@ local function playMemorySequence(memoryId)
 		fadeOut.Completed:Connect(function() currentImageLabel:Destroy() end)
 	end
 
-	if memorySound then
-		local fadeOutMem = TweenService:Create(memorySound, TweenInfo.new(1.5), {Volume = 0})
-		fadeOutMem:Play()
-		fadeOutMem.Completed:Connect(function() memorySound:Destroy() end)
-	end
+	-- Fade out custom memory music
+	local fadeOutMem = TweenService:Create(memoryMusicPlayer, TweenInfo.new(1.5), {Volume = 0})
+	fadeOutMem:Play()
+	fadeOutMem.Completed:Connect(function() memoryMusicPlayer:Stop() end)
 
+	-- Restore original map audio
 	for snd, origVol in pairs(fadingSounds) do
 		if snd and snd.Parent then
 			TweenService:Create(snd, TweenInfo.new(1.5), {Volume = origVol}):Play()
@@ -545,15 +620,12 @@ voteStatusEvent.OnClientEvent:Connect(function(action, value, extraData)
 		end)
 
 	elseif action == "FadeOut" then
-		-- Pick a random image each time
 		fadeFrame.Image = SLEEP_IMAGES[math.random(1, #SLEEP_IMAGES)]
 		fadeFrame.Visible = true;
 
-		-- Start completely invisible
 		fadeFrame.BackgroundTransparency = 1
 		fadeFrame.ImageTransparency = 1
 
-		-- Fade them both in at the exact same time!
 		TweenService:Create(fadeFrame, TweenInfo.new(2), {BackgroundTransparency = 0, ImageTransparency = 0}):Play()
 
 		local textToDisplay = value or "Sleeping"
@@ -570,7 +642,6 @@ voteStatusEvent.OnClientEvent:Connect(function(action, value, extraData)
 	elseif action == "FadeIn" then
 		isSleepingAnim = false;
 		loadingLabel.Visible = false; 
-
 
 		TweenService:Create(fadeFrame, TweenInfo.new(2), {BackgroundTransparency = 1, ImageTransparency = 1}):Play()
 		task.delay(2, function() fadeFrame.Visible = false end)
