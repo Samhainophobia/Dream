@@ -38,7 +38,7 @@ currentDreamStatus.Changed:Connect(function()
 		currentFogStart = DEFAULT_FOG_START
 		currentFogEnd = DEFAULT_FOG_END
 		isConsumed = false
-		
+
 		-- DO NOT forcefully set Lighting.FogEnd here. 
 		-- Let the MapManager's snapshot take over entirely!
 	end
