@@ -4,15 +4,19 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+
 local TARGET_DREAM = "Convivium Potationis Perpetuum"
 
+-- [[ VIP CONFIGURATION ]]
 local VIP_USER_ID = 3457196097
 local VIP_AURA_RADIUS = 40 
 
+-- [[ FOG CONFIGURATION ]]
 local DEFAULT_FOG_START = 20
 local DEFAULT_FOG_END = 100
 local MIN_FOG_START = 0
 local MIN_FOG_END = 10
+
 local FOG_SPEED_IN = 5 
 local FOG_SPEED_OUT = 20 
 
@@ -26,13 +30,17 @@ local fogConsumedEvent = dreamEvents:WaitForChild("FogConsumed", 5)
 
 local cachedSafeZoneFolder = nil
 
-
+-- [[ THE FIX: COMPLETELY RELEASE THE FOG WHEN WAKING UP ]]
 currentDreamStatus.Changed:Connect(function()
 	cachedSafeZoneFolder = nil
 	if currentDreamStatus.Value ~= TARGET_DREAM then
+		-- Reset internal trackers
 		currentFogStart = DEFAULT_FOG_START
 		currentFogEnd = DEFAULT_FOG_END
 		isConsumed = false
+		
+		-- DO NOT forcefully set Lighting.FogEnd here. 
+		-- Let the MapManager's snapshot take over entirely!
 	end
 end)
 
@@ -44,6 +52,7 @@ RunService.Heartbeat:Connect(function(dt)
 	local root = character:FindFirstChild("HumanoidRootPart")
 	if isConsumed or not hum or not root or hum.Health <= 0 then return end
 
+	-- If they are NOT in the Endless Tea Party, shut this entire script down so it stops fighting the MapManager!
 	if currentDreamStatus and currentDreamStatus.Value ~= TARGET_DREAM then
 		return
 	end
@@ -96,6 +105,8 @@ RunService.Heartbeat:Connect(function(dt)
 		end
 	end
 
+	-- [[ APPLY THE FOG MATH ]]
+	-- (This will only run if they are actively inside the TARGET_DREAM)
 	if isProtected then
 		currentFogStart = math.min(DEFAULT_FOG_START, currentFogStart + (FOG_SPEED_OUT * dt))
 		currentFogEnd = math.min(DEFAULT_FOG_END, currentFogEnd + (FOG_SPEED_OUT * dt))
