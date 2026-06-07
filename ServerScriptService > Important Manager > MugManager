@@ -1,8 +1,6 @@
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
--- BadgeService removed (Not needed here anymore)
 
 local currentDreamStatus = ReplicatedStorage:WaitForChild("CurrentDreamStatus")
 local MugEvents = ReplicatedStorage:WaitForChild("MugEvents")
@@ -17,8 +15,8 @@ local LIQUID_STATS = {
 	["Tap Water"] = { Type = "Heal", TotalAmount = 7, Duration = 3, Pulse = false, Color = Color3.fromRGB(0, 170, 255) },
 	["Pond Water"] = { Type = "Heal", TotalAmount = 5, Duration = 3, Pulse = false, Color = Color3.fromRGB(0, 0, 127) },
 	["Holy Water"] = { Type = "Heal", TotalAmount = 17, Duration = 5, Pulse = true, Color = Color3.fromRGB(253, 238, 255) },
-	["Energy Drink"] = { Type = "Speed", Amount = 30, Duration = 5, Pulse = true, Color = Color3.fromRGB(0, 100, 255) },
-	["Spring Water"] = { Type = "Jump", Amount = 50, Duration = 5, Pulse = true, Color = Color3.fromRGB(255, 255, 255) },
+	["Energy Drink"] = { Type = "Speed", Amount = 10, Duration = 5, Pulse = true, Color = Color3.fromRGB(0, 100, 255) },
+	["Spring Water"] = { Type = "Jump", Amount = 75, Duration = 5, Pulse = true, Color = Color3.fromRGB(255, 255, 255) },
 	["Salty Water"] = { Type = "Damage", TotalAmount = 20, Duration = 5, Pulse = true, Color = Color3.fromRGB(120, 255, 120), HeadColor = Color3.fromRGB(107, 142, 35) },
 	["Lava"] = { Type = "Damage", TotalAmount = 50, Duration = 3, Pulse = true, Color = Color3.fromRGB(255, 100, 0), HeadColor = Color3.fromRGB(85, 0, 0) },
 	["Dream Water"] = { Type = "Heal", TotalAmount = 5, Duration = 3, Pulse = false, Color = Color3.fromRGB(170, 0, 255) },
@@ -49,13 +47,11 @@ local DREAM_COLLECT_OVERRIDES = {
 
 local activeDrinkers = {}
 
-
 local function findDeep(parent, name) for _, child in pairs(parent:GetDescendants()) do if child.Name == name then return child end end return nil end
 
 local function isDreaming() 
 	return currentDreamStatus.Value ~= "" 
 end
-
 
 local function updateMugVisuals(tool, liquidName)
 	if not tool then return end
@@ -79,7 +75,6 @@ local function updateMugVisuals(tool, liquidName)
 	end
 end
 
--- 
 local function triggerGhostWalk(player, duration)
 	local targets = {}
 	for _, v in pairs(workspace:GetDescendants()) do
@@ -117,7 +112,6 @@ local function triggerGhostWalk(player, duration)
 	end)
 end
 
-
 local function checkRealmTransform(player)
 	local currentLiquid = player:GetAttribute("SavedMugLiquid")
 	if not currentLiquid or currentLiquid == "" then return end
@@ -145,10 +139,8 @@ local function checkRealmTransform(player)
 	end
 end
 
-
 Players.PlayerAdded:Connect(function(player)
 	player:SetAttribute("SavedMugLiquid", "")
-
 
 	player:GetAttributeChangedSignal("SavedMugLiquid"):Connect(function()
 		local newLiquid = player:GetAttribute("SavedMugLiquid")
@@ -176,13 +168,11 @@ Players.PlayerAdded:Connect(function(player)
 	end)
 end)
 
-
 currentDreamStatus.Changed:Connect(function()
 	for _, player in pairs(Players:GetPlayers()) do
 		checkRealmTransform(player)
 	end
 end)
-
 
 MugAction.OnServerEvent:Connect(function(player, action, targetPart)
 	local char = player.Character; 
@@ -233,7 +223,15 @@ MugAction.OnServerEvent:Connect(function(player, action, targetPart)
 				if stats.Type == "Heal" then task.spawn(function() for i=1,10 do hum.Health = math.min(hum.Health + (stats.TotalAmount/10), hum.MaxHealth); task.wait(0.5) end end)
 				elseif stats.Type == "InstantDamage" then hum:TakeDamage(stats.Amount or 0) 
 				elseif stats.Type == "Damage" then char:SetAttribute("MugDamageActive", true); task.spawn(function() for i=1,25 do hum:TakeDamage(stats.TotalAmount/25); if math.random() > 0.7 then hum.Jump = true end; task.wait(0.2) end; char:SetAttribute("MugDamageActive", nil) end)
-				elseif stats.Type == "Speed" then hum.WalkSpeed = stats.Amount; task.delay(stats.Duration, function() hum.WalkSpeed = 16 end) end
+				elseif stats.Type == "Speed" then hum.WalkSpeed = stats.Amount; task.delay(stats.Duration, function() hum.WalkSpeed = 16 end) 
+			
+				elseif stats.Type == "Jump" then 
+					hum.UseJumpPower = true 
+					hum.JumpPower = stats.Amount 
+					task.delay(stats.Duration, function() 
+						if hum then hum.JumpPower = 50 end -- Reset to standard JumpPower
+					end)
+				end
 			end
 		end
 		player:SetAttribute("SavedMugLiquid", "")
