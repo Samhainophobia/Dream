@@ -6,6 +6,10 @@ local Teams = game:GetService("Teams")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ScarlettShardService = require(ServerScriptService:WaitForChild("ScarlettShardService"))
 
+-- [[ THE FIX: FORCE SPAWN FOG DISTANCES BEFORE BACKUP ]]
+Lighting.FogStart = 50
+Lighting.FogEnd = 500
+
 -- [[ FORCE PRESSURE OFF BEFORE BACKUP ]]
 local pressureEffect = Lighting:FindFirstChild("Pressure")
 if pressureEffect then
@@ -65,7 +69,7 @@ local KING_ID = 4477038552
 local RARE_AUDIO_ID = "rbxassetid://92039715426333"
 
 local DREAM_MAP_NAMES = {
-	"Regnum Chartarum", "Bibliotheca Infinita", "Nivalis", "Taberna", "Convivium Potationis Perpetuum"
+	"Bibliotheca Infinita", "Nivalis", "Taberna", "Convivium Potationis Perpetuum"
 }
 
 local events = ReplicatedStorage:WaitForChild("DreamEvents")
@@ -139,7 +143,6 @@ local function unfreezePlayers()
 end
 
 local function applyMapLighting(mapModel)
-	-- [[ THE FIX: WIPE THE NIGHT TIME EFFECTS OUT FIRST SO THEY DON'T BLEED IN! ]]
 	for propName, propValue in pairs(defaultProperties) do
 		pcall(function() Lighting[propName] = propValue end)
 	end
