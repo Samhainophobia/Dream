@@ -1,0 +1,119 @@
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local TARGET_DREAM = "Convivium Potationis Perpetuum"
+
+local VIP_USER_ID = 3457196097
+local VIP_AURA_RADIUS = 40 
+
+local DEFAULT_FOG_START = 20
+local DEFAULT_FOG_END = 100
+local MIN_FOG_START = 0
+local MIN_FOG_END = 10
+local FOG_SPEED_IN = 5 
+local FOG_SPEED_OUT = 20 
+
+local currentFogStart = DEFAULT_FOG_START
+local currentFogEnd = DEFAULT_FOG_END
+local isConsumed = false
+
+local currentDreamStatus = ReplicatedStorage:WaitForChild("CurrentDreamStatus")
+local dreamEvents = ReplicatedStorage:WaitForChild("DreamEvents")
+local fogConsumedEvent = dreamEvents:WaitForChild("FogConsumed", 5)
+
+local cachedSafeZoneFolder = nil
+
+
+currentDreamStatus.Changed:Connect(function()
+	cachedSafeZoneFolder = nil
+	if currentDreamStatus.Value ~= TARGET_DREAM then
+		currentFogStart = DEFAULT_FOG_START
+		currentFogEnd = DEFAULT_FOG_END
+		isConsumed = false
+	end
+end)
+
+RunService.Heartbeat:Connect(function(dt)
+	local character = player.Character
+	if not character then return end
+
+	local hum = character:FindFirstChild("Humanoid")
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if isConsumed or not hum or not root or hum.Health <= 0 then return end
+
+	if currentDreamStatus and currentDreamStatus.Value ~= TARGET_DREAM then
+		return
+	end
+
+	local isNearVIP = false
+	if player.UserId == VIP_USER_ID then
+		isNearVIP = true 
+	else
+		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+			if otherPlayer.UserId == VIP_USER_ID and otherPlayer.Character then
+				local otherRoot = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
+				if otherRoot and (root.Position - otherRoot.Position).Magnitude <= VIP_AURA_RADIUS then
+					isNearVIP = true
+					break
+				end
+			end
+		end
+	end
+
+	local lastLanternTime = character:GetAttribute("LanternActiveTime")
+	local isProtected = false
+
+	if (lastLanternTime and (os.clock() - lastLanternTime < 3.0)) or isNearVIP then
+		isProtected = true
+	end
+
+	local inSafeZone = false
+	if not cachedSafeZoneFolder then
+		local dreamMap = workspace:FindFirstChild(TARGET_DREAM)
+		if dreamMap then
+			for _, child in ipairs(dreamMap:GetDescendants()) do
+				if child.Name == "SafeZones" and (child:IsA("Model") or child:IsA("Folder")) then
+					cachedSafeZoneFolder = child
+					break
+				end
+			end
+		end
+	end
+
+	if cachedSafeZoneFolder then
+		for _, zonePart in ipairs(cachedSafeZoneFolder:GetChildren()) do
+			if zonePart:IsA("BasePart") then
+				local relativePos = zonePart.CFrame:PointToObjectSpace(root.Position)
+				local halfSize = zonePart.Size / 2
+				if math.abs(relativePos.X) <= halfSize.X and math.abs(relativePos.Y) <= halfSize.Y and math.abs(relativePos.Z) <= halfSize.Z then
+					inSafeZone = true
+					break
+				end
+			end
+		end
+	end
+
+	if isProtected then
+		currentFogStart = math.min(DEFAULT_FOG_START, currentFogStart + (FOG_SPEED_OUT * dt))
+		currentFogEnd = math.min(DEFAULT_FOG_END, currentFogEnd + (FOG_SPEED_OUT * dt))
+	elseif inSafeZone then
+		local safeFogTarget = math.min(DEFAULT_FOG_START, currentFogEnd - 2)
+		if currentFogStart < safeFogTarget then
+			currentFogStart = math.min(safeFogTarget, currentFogStart + (FOG_SPEED_OUT * dt))
+		end
+	else
+		currentFogStart = math.max(MIN_FOG_START, currentFogStart - (FOG_SPEED_IN * dt))
+		currentFogEnd = math.max(MIN_FOG_END, currentFogEnd - (FOG_SPEED_IN * dt))
+	end
+
+	Lighting.FogStart = currentFogStart
+	Lighting.FogEnd = currentFogEnd
+
+	if currentFogEnd <= MIN_FOG_END then
+		isConsumed = true
+		if fogConsumedEvent then fogConsumedEvent:FireServer() end
+	end
+end)
