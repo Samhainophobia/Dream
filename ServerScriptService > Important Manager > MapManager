@@ -6,7 +6,7 @@ local Teams = game:GetService("Teams")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ScarlettShardService = require(ServerScriptService:WaitForChild("ScarlettShardService"))
 
--- [[ THE FIX: FORCE PRESSURE OFF BEFORE BACKUP ]]
+-- [[ FORCE PRESSURE OFF BEFORE BACKUP ]]
 local pressureEffect = Lighting:FindFirstChild("Pressure")
 if pressureEffect then
 	pressureEffect.Enabled = false
@@ -17,14 +17,12 @@ local defaultLightingBackup = Instance.new("Folder")
 defaultLightingBackup.Name = "DefaultLightingBackup"
 defaultLightingBackup.Parent = ServerStorage
 
--- 1. Backup all the Children (ColorCorrections, Blurs, Atmospheres, etc.)
 for _, child in ipairs(Lighting:GetChildren()) do
 	if not child:IsA("Script") then
 		child:Clone().Parent = defaultLightingBackup
 	end
 end
 
--- 2. Backup the core properties
 local defaultProperties = {
 	Ambient = Lighting.Ambient,
 	Brightness = Lighting.Brightness,
@@ -35,13 +33,30 @@ local defaultProperties = {
 	GlobalShadows = Lighting.GlobalShadows,
 	OutdoorAmbient = Lighting.OutdoorAmbient,
 	ShadowSoftness = Lighting.ShadowSoftness,
-	ClockTime = Lighting.ClockTime,
 	GeographicLatitude = Lighting.GeographicLatitude,
 	ExposureCompensation = Lighting.ExposureCompensation,
 	FogColor = Lighting.FogColor,
 	FogStart = Lighting.FogStart,
 	FogEnd = Lighting.FogEnd
 }
+
+local currentDreamStatus = ReplicatedStorage:WaitForChild("CurrentDreamStatus") 
+
+local function updateTimeBasedLighting()
+	if currentDreamStatus.Value == "" then
+		if Lighting.ClockTime >= 18 or Lighting.ClockTime < 6 then
+			Lighting.OutdoorAmbient = Color3.fromRGB(54, 54, 54)
+			Lighting.FogColor = Color3.fromRGB(192, 192, 192)
+			Lighting.Ambient = Color3.fromRGB(36, 36, 36)
+		else
+			Lighting.OutdoorAmbient = defaultProperties.OutdoorAmbient
+			Lighting.FogColor = defaultProperties.FogColor
+			Lighting.Ambient = defaultProperties.Ambient
+		end
+	end
+end
+
+Lighting:GetPropertyChangedSignal("ClockTime"):Connect(updateTimeBasedLighting)
 
 local COOLDOWN_TIME = 15 
 local COUNTDOWN_TIME = 5
@@ -50,19 +65,13 @@ local KING_ID = 4477038552
 local RARE_AUDIO_ID = "rbxassetid://92039715426333"
 
 local DREAM_MAP_NAMES = {
-	"Regnum Chartarum",
-	"Bibliotheca Infinita",
-	"Nivalis",
-	"Taberna",
-	"Convivium Potationis Perpetuum"
+	"Regnum Chartarum", "Bibliotheca Infinita", "Nivalis", "Taberna", "Convivium Potationis Perpetuum"
 }
 
 local events = ReplicatedStorage:WaitForChild("DreamEvents")
 local voteStatusEvent = events:WaitForChild("VoteStatus")
 local sendVoteEvent = events:WaitForChild("SendVote")
-local currentDreamStatus = ReplicatedStorage:WaitForChild("CurrentDreamStatus") 
 
--- STATE
 local isDreamActive = false
 local isVoting = false
 local isOnCooldown = false
@@ -79,25 +88,13 @@ local tempPlatforms = {}
 local function setupTeams()
 	local nightmare = Teams:FindFirstChild("Safe Place")
 	if not nightmare then
-		nightmare = Instance.new("Team")
-		nightmare.Name = "Safe Place" 
-		nightmare.TeamColor = BrickColor.new("White") 
-		nightmare.AutoAssignable = false 
-		nightmare.Parent = Teams
-	else
-		nightmare.TeamColor = BrickColor.new("White")
-	end
+		nightmare = Instance.new("Team"); nightmare.Name = "Safe Place"; nightmare.TeamColor = BrickColor.new("White"); nightmare.AutoAssignable = false; nightmare.Parent = Teams
+	else nightmare.TeamColor = BrickColor.new("White") end
 
 	local dreamers = Teams:FindFirstChild("Dreamers")
 	if not dreamers then
-		dreamers = Instance.new("Team")
-		dreamers.Name = "Dreamers"
-		dreamers.TeamColor = BrickColor.new("Really black") 
-		dreamers.AutoAssignable = true 
-		dreamers.Parent = Teams
-	else
-		dreamers.TeamColor = BrickColor.new("Really black")
-	end
+		dreamers = Instance.new("Team"); dreamers.Name = "Dreamers"; dreamers.TeamColor = BrickColor.new("Really black"); dreamers.AutoAssignable = true; dreamers.Parent = Teams
+	else dreamers.TeamColor = BrickColor.new("Really black") end
 end
 
 setupTeams()
@@ -116,24 +113,14 @@ local function freezeAndTeleport(targetCFrame)
 		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			local root = player.Character.HumanoidRootPart
 			local hum = player.Character:FindFirstChild("Humanoid")
+			if hum then hum.Sit = false; hum:ChangeState(Enum.HumanoidStateType.Physics) end
 
-			if hum then 
-				hum.Sit = false 
-				hum:ChangeState(Enum.HumanoidStateType.Physics) 
-			end
-			
 			local plat = Instance.new("Part")
-			plat.Size = Vector3.new(20, 1, 20)
-			plat.Anchored = true
-			plat.Transparency = 1 
-			plat.CanCollide = true
-			plat.Position = targetCFrame.Position - Vector3.new(0, 5, 0)
-			plat.Parent = workspace
+			plat.Size = Vector3.new(20, 1, 20); plat.Anchored = true; plat.Transparency = 1; plat.CanCollide = true
+			plat.Position = targetCFrame.Position - Vector3.new(0, 5, 0); plat.Parent = workspace
 			table.insert(tempPlatforms, plat)
 
-			root.CFrame = targetCFrame
-			root.Anchored = true
-			root.Velocity = Vector3.new(0,0,0)
+			root.CFrame = targetCFrame; root.Anchored = true; root.Velocity = Vector3.new(0,0,0)
 		end
 	end
 end
@@ -143,19 +130,20 @@ local function unfreezePlayers()
 		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			local root = player.Character.HumanoidRootPart
 			local hum = player.Character:FindFirstChild("Humanoid")
-
 			root.Anchored = false
 			if hum then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
 		end
 	end
-
-	for _, p in pairs(tempPlatforms) do
-		if p then p:Destroy() end
-	end
+	for _, p in pairs(tempPlatforms) do if p then p:Destroy() end end
 	tempPlatforms = {}
 end
 
 local function applyMapLighting(mapModel)
+	-- [[ THE FIX: WIPE THE NIGHT TIME EFFECTS OUT FIRST SO THEY DON'T BLEED IN! ]]
+	for propName, propValue in pairs(defaultProperties) do
+		pcall(function() Lighting[propName] = propValue end)
+	end
+
 	local settingsFolder = mapModel:FindFirstChild("LightingSettings")
 	if not settingsFolder then return end 
 
@@ -187,40 +175,26 @@ local function triggerKingEvent()
 	for _, p in pairs(Players:GetPlayers()) do
 		if p.UserId == KING_ID then isKingPresent = true break end
 	end
-
-	local chance = isKingPresent and 25 or 5
-	local roll = math.random(1, 100)
-
-	if roll <= chance then
+	if math.random(1, 100) <= (isKingPresent and 25 or 5) then
 		local sound = Instance.new("Sound", workspace)
-		sound.SoundId = RARE_AUDIO_ID
-		sound.Volume = 2
-		sound.PlayOnRemove = true
-		sound:Destroy()
+		sound.SoundId = RARE_AUDIO_ID; sound.Volume = 2; sound.PlayOnRemove = true; sound:Destroy()
 		voteStatusEvent:FireAllClients("ShowIntroText", "Welcome to the Card Kingdom", Color3.fromRGB(255, 0, 0))
 	end
 end
 
 local function finishVote()
 	voteStatusEvent:FireAllClients("HideVote")
-
 	local yesCount = 0
 	local totalPlayers = #Players:GetPlayers()
-	for _, vote in pairs(votes) do
-		if vote == true then yesCount += 1 end
-	end
+	for _, vote in pairs(votes) do if vote == true then yesCount += 1 end end
 
 	if yesCount > 0 and yesCount >= (totalPlayers / 2) then
 		for i = COUNTDOWN_TIME, 1, -1 do
 			updateAllClients("Transition in " .. i .. "...")
-			if i <= 3 then
-				voteStatusEvent:FireAllClients("PlaySound")
-			end
+			if i <= 3 then voteStatusEvent:FireAllClients("PlaySound") end
 			task.wait(1)
 		end
-
 		if voteType == "Sleep" then _G.LoadDream() else _G.UnloadDream() end
-
 		task.wait(3)
 		voteStatusEvent:FireAllClients("ClearTopText")
 		isVoting = false
@@ -230,126 +204,77 @@ local function finishVote()
 		task.wait(3)
 		voteStatusEvent:FireAllClients("ClearTopText") 
 		isVoting = false 
-
-		local remainingTime = COOLDOWN_TIME - 3
-		if remainingTime > 0 then task.wait(remainingTime) end
+		task.wait(math.max(0, COOLDOWN_TIME - 3))
 		isOnCooldown = false
 	end
 end
 
 local function startVote(player, type)
-	if isVoting then return end
-	if isOnCooldown then return end
-
-	isVoting = true
-	voteType = type 
-	votes = {}
-	votes[player] = true 
-
+	if isVoting or isOnCooldown then return end
+	isVoting = true; voteType = type; votes = {}; votes[player] = true 
 	voteStatusEvent:FireAllClients("ShowVote", player.Name, type)
 	updateAllClients("Vote initiated by " .. player.Name)
-
 	task.wait(10) 
 	finishVote()
 end
 
 local function connectButton(buttonPart, type)
 	if currentClickConnection then currentClickConnection:Disconnect() end
-
 	local clicker = buttonPart:FindFirstChild("ClickDetector")
 	if clicker then
-		currentClickConnection = clicker.MouseClick:Connect(function(player)
-			startVote(player, type)
-		end)
-	else
-		warn("CRITICAL: No ClickDetector found in " .. buttonPart.Name)
+		currentClickConnection = clicker.MouseClick:Connect(function(player) startVote(player, type) end)
 	end
 end
 
 _G.LoadDream = function()
 	updateAllClients("ENTERING THE DREAM...")
 	voteStatusEvent:FireAllClients("FadeOut") 
-
 	task.wait(2.2) 
-
 	mainMap.Parent = ServerStorage 
 
 	local nextMapName = nil
-
 	if _G.ForcedNextDream then
-		if mapsFolder:FindFirstChild(_G.ForcedNextDream) then
-			nextMapName = _G.ForcedNextDream
-			print("Loading Admin-Forced Dream: " .. nextMapName)
-		else
-			warn("Admin tried to force dream '" .. tostring(_G.ForcedNextDream) .. "', but it doesn't exist in ServerStorage/Maps!")
-		end
+		if mapsFolder:FindFirstChild(_G.ForcedNextDream) then nextMapName = _G.ForcedNextDream end
 		_G.ForcedNextDream = nil 
 	end
-	
+
 	if not nextMapName then
 		local availableMaps = {}
 		for _, name in ipairs(DREAM_MAP_NAMES) do
-			if name ~= lastMapName then 
-				table.insert(availableMaps, name)
-			end
+			if name ~= lastMapName then table.insert(availableMaps, name) end
 		end
 		if #availableMaps == 0 then availableMaps = DREAM_MAP_NAMES end
 		nextMapName = availableMaps[math.random(1, #availableMaps)]
 	end
 
 	lastMapName = nextMapName
-
-	local selectedMapTemplate = mapsFolder:FindFirstChild(nextMapName)
-
-	if not selectedMapTemplate then
-		warn("Could not find map " .. nextMapName)
-		selectedMapTemplate = mapsFolder:FindFirstChild("Regnum Chartarum") 
-	end
-
+	local selectedMapTemplate = mapsFolder:FindFirstChild(nextMapName) or mapsFolder:FindFirstChild("Regnum Chartarum") 
 	currentDreamMap = selectedMapTemplate:Clone()
 	currentDreamMap.Parent = workspace
-
 	currentDreamStatus.Value = currentDreamMap.Name 
 
 	for _, team in pairs(Teams:GetTeams()) do
-		if team.Name ~= "Dreamers" then
-			team.Name = currentDreamMap.Name 
-		end
+		if team.Name ~= "Dreamers" then team.Name = currentDreamMap.Name end
 	end
 
 	applyMapLighting(currentDreamMap)
 
 	local spawnPoint = currentDreamMap:FindFirstChild("SpawnLocation") 
-	local targetCFrame
-
-	if spawnPoint then
-		targetCFrame = spawnPoint.CFrame + Vector3.new(0, 10, 0)
-	else
-		warn("CRITICAL: " .. currentDreamMap.Name .. " HAS NO SpawnLocation! Using Fallback.")
-		targetCFrame = CFrame.new(0, 50, 0) 
-	end
-
+	local targetCFrame = spawnPoint and (spawnPoint.CFrame + Vector3.new(0, 10, 0)) or CFrame.new(0, 50, 0) 
 	freezeAndTeleport(targetCFrame)
 
 	for _, player in pairs(Players:GetPlayers()) do
 		local stats = player:FindFirstChild("leaderstats")
-		if stats then
-			stats.Souls.Value += 1
-			stats.Dreams.Value += 1
-		end
+		if stats then stats.Souls.Value += 1; stats.Dreams.Value += 1 end
 	end
 
 	isDreamActive = true
-
 	local wakePart = currentDreamMap:FindFirstChild("WakeUpPart", true) 
 	if wakePart then connectButton(wakePart, "Wake") end
 
-	if currentDreamMap.Name == "Regnum Chartarum" then
-		triggerKingEvent()
-	end
+	if currentDreamMap.Name == "Regnum Chartarum" then triggerKingEvent() end
 
 	task.wait(LOAD_DELAY_TIME) 
-
 	unfreezePlayers() 
 	voteStatusEvent:FireAllClients("FadeIn") 
 end
@@ -359,72 +284,48 @@ _G.UnloadDream = function()
 	voteStatusEvent:FireAllClients("FadeOut", "Waking Up")
 	task.wait(2.2)
 	ScarlettShardService:Reset()
-	if currentDreamMap then
-		currentDreamMap:Destroy()
-		currentDreamMap = nil
-	end
+	if currentDreamMap then currentDreamMap:Destroy(); currentDreamMap = nil end
 	mainMap.Parent = workspace
-
 	currentDreamStatus.Value = "" 
 
 	for _, team in pairs(Teams:GetTeams()) do
-		if team.Name ~= "Dreamers" then
-			team.Name = "Safe Place" 
-		end
+		if team.Name ~= "Dreamers" then team.Name = "Safe Place" end
 	end
 
-	-- CLEAR ALL DREAM LIGHTING
 	for _, child in ipairs(Lighting:GetChildren()) do
-		if not child:IsA("Script") then
-			child:Destroy()
-		end
+		if not child:IsA("Script") then child:Destroy() end
 	end
-	
-	-- RESTORE DEFAULT LIGHTING EFFECTS
+
 	for _, child in ipairs(defaultLightingBackup:GetChildren()) do
 		local clone = child:Clone()
-		-- [[ BULLETPROOF FIX: Force Pressure OFF upon restoring ]]
-		if clone.Name == "Pressure" then
-			clone.Enabled = false
-		end
+		if clone.Name == "Pressure" then clone.Enabled = false end
 		clone.Parent = Lighting
 	end
-	
-	-- RESTORE DEFAULT LIGHTING PROPERTIES
+
 	for propName, propValue in pairs(defaultProperties) do
-		pcall(function()
-			Lighting[propName] = propValue
-		end)
+		pcall(function() Lighting[propName] = propValue end)
 	end
 
-	local destPart = mainMap:FindFirstChild("DreamBed", true)
-	if not destPart then destPart = mainMap:FindFirstChild("SpawnLocation") end
+	Lighting.ClockTime = math.random() * 24
+	updateTimeBasedLighting()
 
+	local destPart = mainMap:FindFirstChild("DreamBed", true) or mainMap:FindFirstChild("SpawnLocation")
 	local targetCFrame = destPart and (destPart.CFrame + Vector3.new(0, 5, 0)) or CFrame.new(0, 20, 0)
 	freezeAndTeleport(targetCFrame)
 
 	isDreamActive = false
-
-	if mainMap:FindFirstChild("DreamBed", true) then 
-		connectButton(mainMap:FindFirstChild("DreamBed", true), "Sleep") 
-	end
+	if mainMap:FindFirstChild("DreamBed", true) then connectButton(mainMap:FindFirstChild("DreamBed", true), "Sleep") end
 
 	task.wait(LOAD_DELAY_TIME)
-
 	unfreezePlayers()
 	voteStatusEvent:FireAllClients("FadeIn")
 end
 
 currentDreamStatus.Value = "" 
-
 task.wait(2) 
 local initialBed = mainMap:FindFirstChild("DreamBed", true)
-if initialBed then
-	connectButton(initialBed, "Sleep")
-end
+if initialBed then connectButton(initialBed, "Sleep") end
 
 sendVoteEvent.OnServerEvent:Connect(function(player, voteChoice)
-	if isVoting then
-		votes[player] = voteChoice
-	end
+	if isVoting then votes[player] = voteChoice end
 end)
