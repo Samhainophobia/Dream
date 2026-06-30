@@ -18,7 +18,7 @@ local LIQUID_STATS = {
 	["Energy Drink"] = { Type = "Speed", Amount = 10, Duration = 5, Pulse = true, Color = Color3.fromRGB(0, 100, 255) },
 	["Spring Water"] = { Type = "Jump", Amount = 75, Duration = 5, Pulse = true, Color = Color3.fromRGB(255, 255, 255) },
 	["Salty Water"] = { Type = "Damage", TotalAmount = 20, Duration = 5, Pulse = true, Color = Color3.fromRGB(120, 255, 120), HeadColor = Color3.fromRGB(107, 142, 35) },
-	["Lava"] = { Type = "Damage", TotalAmount = 50, Duration = 3, Pulse = true, Color = Color3.fromRGB(255, 100, 0), HeadColor = Color3.fromRGB(85, 0, 0) },
+	["Spirit Water"] = { Type = "InstantDamage", TotalAmount = 50, Duration = 3, Pulse = true, Color = Color3.fromRGB(170, 0, 255), ScreenEffect = "Darken", EffectTime = 30, SoundId = "rbxassetid://138081686", SpecialAction = "GhostWalk"},
 	["Dream Water"] = { Type = "Heal", TotalAmount = 5, Duration = 3, Pulse = false, Color = Color3.fromRGB(170, 0, 255) },
 	["Water"] = { Type = "Heal", TotalAmount = 5, Duration = 3, Pulse = false, Color = Color3.fromRGB(85, 170, 255) },
 	["Water?"] = { Type = "InstantDamage", Amount = 3, Pulse = false, Color = Color3.fromRGB(85, 170, 255), ScreenEffect = "Darken", EffectTime = 30, SoundId = "rbxassetid://138081686", SpecialAction = "GhostWalk" }
