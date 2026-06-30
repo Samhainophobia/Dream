@@ -6,13 +6,18 @@ local Teams = game:GetService("Teams")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ScarlettShardService = require(ServerScriptService:WaitForChild("ScarlettShardService"))
 
--- [[ FORCE PRESSURE OFF BEFORE BACKUP ]]
+
+local DataStoreService = game:GetService("DataStoreService")
+local BadgeService = game:GetService("BadgeService")
+local playerData = DataStoreService:GetDataStore("FrozenSoulData_v1")
+local FIRST_DREAM_BADGE_ID = 4312280043259056
+
+
 local pressureEffect = Lighting:FindFirstChild("Pressure")
 if pressureEffect then
 	pressureEffect.Enabled = false
 end
 
--- [[ LIGHTING BACKUP SYSTEM ]]
 local defaultLightingBackup = Instance.new("Folder")
 defaultLightingBackup.Name = "DefaultLightingBackup"
 defaultLightingBackup.Parent = ServerStorage
@@ -65,7 +70,7 @@ local KING_ID = 4477038552
 local RARE_AUDIO_ID = "rbxassetid://92039715426333"
 
 local DREAM_MAP_NAMES = {
- "Bibliotheca Infinita", "Nivalis", "Taberna", "Convivium Potationis Perpetuum"
+	"Bibliotheca Infinita", "Nivalis", "Taberna", "Convivium Potationis Perpetuum"
 }
 
 local events = ReplicatedStorage:WaitForChild("DreamEvents")
@@ -99,13 +104,72 @@ end
 
 setupTeams()
 
+
+local function loadData(player)
+	local ls = Instance.new("Folder", player); ls.Name = "leaderstats"
+	local souls = Instance.new("IntValue", ls); souls.Name = "Souls"
+	local dreams = Instance.new("IntValue", ls); dreams.Name = "Dreams"
+
+	-- [[ THE FIX: PARENT TO PLAYER INSTEAD OF LEADERSTATS TO HIDE IT ]]
+	local luckCharm = Instance.new("BoolValue", player); luckCharm.Name = "LuckCharmActive"
+
+	local s, d = pcall(function() return playerData:GetAsync("Player_" .. player.UserId) end)
+	if s and d then 
+		souls.Value = d.Souls or 0
+		dreams.Value = d.Dreams or 0 
+		luckCharm.Value = d.LuckCharmActive or false 
+	end 
+end
+
+local function saveData(player)
+	local ls = player:FindFirstChild("leaderstats")
+	local luckCharm = player:FindFirstChild("LuckCharmActive") -- [[ FETCH FROM PLAYER ]]
+
+	if ls then
+		local data = {
+			Souls = ls.Souls.Value, 
+			Dreams = ls.Dreams.Value,
+			LuckCharmActive = luckCharm and luckCharm.Value or false
+		}
+		pcall(function() playerData:SetAsync("Player_" .. player.UserId, data) end)
+	end
+end
+
+-- Save on leave and server shutdown
+Players.PlayerRemoving:Connect(saveData)
+game:BindToClose(function()
+	for _, player in ipairs(Players:GetPlayers()) do
+		saveData(player)
+	end
+end)
+
 Players.PlayerAdded:Connect(function(player)
 	player.Neutral = false
 	player.Team = Teams:FindFirstChild("Dreamers")
+
+	loadData(player)
 end)
 
 local function updateAllClients(msg)
 	voteStatusEvent:FireAllClients("UpdateTopText", msg)
+end
+
+
+local function securePlayersInPlace()
+	for _, player in pairs(Players:GetPlayers()) do
+		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+			local root = player.Character.HumanoidRootPart
+			root.Anchored = true
+			root.Velocity = Vector3.new(0, 0, 0)
+
+			if not player.Character:FindFirstChild("TransitionSafety") then
+				local ff = Instance.new("ForceField")
+				ff.Name = "TransitionSafety"
+				ff.Visible = false
+				ff.Parent = player.Character
+			end
+		end
+	end
 end
 
 local function freezeAndTeleport(targetCFrame)
@@ -115,8 +179,9 @@ local function freezeAndTeleport(targetCFrame)
 			local hum = player.Character:FindFirstChild("Humanoid")
 			if hum then hum.Sit = false; hum:ChangeState(Enum.HumanoidStateType.Physics) end
 
+
 			local plat = Instance.new("Part")
-			plat.Size = Vector3.new(20, 1, 20); plat.Anchored = true; plat.Transparency = 1; plat.CanCollide = true
+			plat.Size = Vector3.new(200, 5, 200); plat.Anchored = true; plat.Transparency = 1; plat.CanCollide = true
 			plat.Position = targetCFrame.Position - Vector3.new(0, 5, 0); plat.Parent = workspace
 			table.insert(tempPlatforms, plat)
 
@@ -126,20 +191,28 @@ local function freezeAndTeleport(targetCFrame)
 end
 
 local function unfreezePlayers()
+
+	for _, p in pairs(tempPlatforms) do 
+		if p then p:Destroy() end 
+	end
+	tempPlatforms = {}
+
 	for _, player in pairs(Players:GetPlayers()) do
 		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
 			local root = player.Character.HumanoidRootPart
 			local hum = player.Character:FindFirstChild("Humanoid")
 			root.Anchored = false
 			if hum then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
+
+
+			local ff = player.Character:FindFirstChild("TransitionSafety")
+			if ff then ff:Destroy() end
 		end
 	end
-	for _, p in pairs(tempPlatforms) do if p then p:Destroy() end end
-	tempPlatforms = {}
 end
 
 local function applyMapLighting(mapModel)
-	-- [[ THE FIX: WIPE THE NIGHT TIME EFFECTS OUT FIRST SO THEY DON'T BLEED IN! ]]
+
 	for propName, propValue in pairs(defaultProperties) do
 		pcall(function() Lighting[propName] = propValue end)
 	end
@@ -229,6 +302,10 @@ end
 _G.LoadDream = function()
 	updateAllClients("ENTERING THE DREAM...")
 	voteStatusEvent:FireAllClients("FadeOut") 
+
+
+	securePlayersInPlace()
+
 	task.wait(2.2) 
 	mainMap.Parent = ServerStorage 
 
@@ -248,7 +325,12 @@ _G.LoadDream = function()
 	end
 
 	lastMapName = nextMapName
-	local selectedMapTemplate = mapsFolder:FindFirstChild(nextMapName) or mapsFolder:FindFirstChild("Regnum Chartarum") 
+	local selectedMapTemplate = mapsFolder:FindFirstChild(nextMapName)
+	if not selectedMapTemplate then
+		warn("MAP ERROR: Could not find '" .. tostring(nextMapName) .. "' in ServerStorage/Maps! Forcing Regnum Chartarum.")
+		selectedMapTemplate = mapsFolder:FindFirstChild("Regnum Chartarum")
+	end
+
 	currentDreamMap = selectedMapTemplate:Clone()
 	currentDreamMap.Parent = workspace
 	currentDreamStatus.Value = currentDreamMap.Name 
@@ -265,7 +347,19 @@ _G.LoadDream = function()
 
 	for _, player in pairs(Players:GetPlayers()) do
 		local stats = player:FindFirstChild("leaderstats")
-		if stats then stats.Souls.Value += 1; stats.Dreams.Value += 1 end
+		if stats then 
+			stats.Souls.Value += 1 
+			stats.Dreams.Value += 1 
+
+
+			if stats.Dreams.Value == 1 then
+				pcall(function()
+					if not BadgeService:UserHasBadgeAsync(player.UserId, FIRST_DREAM_BADGE_ID) then
+						BadgeService:AwardBadge(player.UserId, FIRST_DREAM_BADGE_ID)
+					end
+				end)
+			end
+		end
 	end
 
 	isDreamActive = true
@@ -282,6 +376,10 @@ end
 _G.UnloadDream = function()
 	updateAllClients("WAKING UP...")
 	voteStatusEvent:FireAllClients("FadeOut", "Waking Up")
+
+
+	securePlayersInPlace()
+
 	task.wait(2.2)
 	ScarlettShardService:Reset()
 	if currentDreamMap then currentDreamMap:Destroy(); currentDreamMap = nil end
